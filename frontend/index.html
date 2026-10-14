@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo List</title>
+    <link rel="stylesheet" href="./css/style.css" />
+    <script src="./js/api.js" defer></script>
+    <script src="./js/app.js" defer></script>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Todo List</h1>
+      <p class="subtitle">Đăng nhập để quản lý công việc của bạn</p>
+
+      <p id="message" class="message" role="status"></p>
+
+      <section id="auth-section" class="auth-grid">
+        <form id="login-form" class="panel">
+          <h2>Đăng nhập</h2>
+
+          <label for="login-email">Email</label>
+          <input
+            id="login-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="login-password">Mật khẩu</label>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+
+          <button type="submit">Đăng nhập</button>
+        </form>
+
+        <form id="register-form" class="panel">
+          <h2>Tạo tài khoản</h2>
+
+          <label for="register-email">Email</label>
+          <input
+            id="register-email"
+            name="email"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="register-password">Mật khẩu</label>
+          <input
+            id="register-password"
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+          />
+
+          <button type="submit">Đăng ký</button>
+        </form>
+      </section>
+
+      <section id="user-section" hidden>
+        <header class="app-header">
+          <div>
+            <h2>Công việc của tôi</h2>
+            <p>Xin chào, <strong id="user-email"></strong></p>
+          </div>
+          <button id="logout-button" class="secondary-button" type="button">
+            Đăng xuất
+          </button>
+        </header>
+
+        <form id="task-form" class="panel">
+          <h3>Thêm công việc</h3>
+
+          <label for="task-title">Tên công việc *</label>
+          <input
+            id="task-title"
+            name="title"
+            type="text"
+            maxlength="255"
+            placeholder="Ví dụ: Hoàn thành bài tập JavaScript"
+            required
+          />
+
+          <label for="task-description">Mô tả</label>
+          <textarea
+            id="task-description"
+            name="description"
+            rows="3"
+            placeholder="Ghi chú chi tiết (không bắt buộc)"
+          ></textarea>
+
+          <label for="task-priority">Mức độ ưu tiên</label>
+          <select id="task-priority" name="priority">
+            <option value="low">Thấp</option>
+            <option value="medium" selected>Trung bình</option>
+            <option value="high">Cao</option>
+          </select>
+
+          <label for="task-due-date">Hạn hoàn thành</label>
+          <input id="task-due-date" name="due_date" type="date" />
+
+          <button type="submit">Thêm công việc</button>
+        </form>
+
+        <section class="panel">
+          <h3>Danh sách công việc</h3>
+
+          <label for="task-search">Tìm kiếm</label>
+          <input
+            id="task-search"
+            type="search"
+            placeholder="Nhập tên hoặc mô tả công việc"
+          />
+
+          <div class="filter-grid">
+            <div>
+              <label for="filter-status">Trạng thái</label>
+              <select id="filter-status">
+                <option value="">Tất cả</option>
+                <option value="todo">Chưa bắt đầu</option>
+                <option value="in_progress">Đang thực hiện</option>
+                <option value="completed">Đã hoàn thành</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="filter-priority">Ưu tiên</label>
+              <select id="filter-priority">
+                <option value="">Tất cả</option>
+                <option value="low">Thấp</option>
+                <option value="medium">Trung bình</option>
+                <option value="high">Cao</option>
+              </select>
+            </div>
+          </div>
+
+          <p id="task-count" class="subtitle"></p>
+          <div id="task-list" class="task-list"></div>
+        </section>
+
+        <section class="panel">
+          <h3>Thùng rác</h3>
+          <p class="subtitle">Các công việc đã xóa có thể được khôi phục.</p>
+          <button id="load-trash-button" class="secondary-button" type="button">
+            Xem thùng rác
+          </button>
+          <div id="trash-list" class="task-list"></div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
