@@ -13,6 +13,15 @@ const editTaskForm = document.getElementById('edit-task-form');
 const searchInput = document.getElementById('task-search');
 const statusFilter = document.getElementById('filter-status');
 const priorityFilter = document.getElementById('filter-priority');
+const sortSelect = document.getElementById('sort-by');
+const pageSizeSelect = document.getElementById('page-size');
+const prevPageButton = document.getElementById('prev-page');
+const nextPageButton = document.getElementById('next-page');
+const pageInfo = document.getElementById('page-info');
+
+let currentPage = 1;
+let totalPages = 1;
+let searchTimer = null;
 
 let currentUser = null;
 
@@ -234,14 +243,18 @@ async function loadTasks() {
     search: searchInput.value.trim(),
     status: statusFilter.value,
     priority: priorityFilter.value,
-    page: '1',
-    limit: '100',
+    sort: sortSelect.value,
+    page: String(currentPage),
+    limit: pageSizeSelect.value,
   };
 
   try {
     const result = await getTasks(filters);
     const tasks = result.tasks || [];
+    const pagination = result.pagination || {};
 
+    currentPage = pagination.page || 1;
+    totalPages = Math.max(1, pagination.totalPages || 1);
     taskList.replaceChildren();
 
     if (tasks.length === 0) {
@@ -252,9 +265,15 @@ async function loadTasks() {
       });
     }
 
-    const total = result.pagination?.total ?? tasks.length;
+    const total = pagination.total ?? tasks.length;
+
     document.getElementById('task-count').textContent =
       `Tổng số công việc phù hợp: ${total}`;
+
+    pageInfo.textContent = `Trang ${currentPage} / ${totalPages}`;
+
+    prevPageButton.disabled = currentPage <= 1;
+    nextPageButton.disabled = currentPage >= totalPages;
   } catch (error) {
     showMessage(getErrorMessage(error), 'error');
   }
@@ -292,9 +311,41 @@ taskForm.addEventListener('submit', async (event) => {
   }
 });
 
-searchInput.addEventListener('input', loadTasks);
-statusFilter.addEventListener('change', loadTasks);
-priorityFilter.addEventListener('change', loadTasks);
+function resetPageAndLoad() {
+  currentPage = 1;
+  loadTasks();
+}
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+
+  searchTimer = setTimeout(() => {
+    resetPageAndLoad();
+  }, 300);
+});
+
+statusFilter.addEventListener('change', resetPageAndLoad);
+priorityFilter.addEventListener('change', resetPageAndLoad);
+sortSelect.addEventListener('change', resetPageAndLoad);
+
+pageSizeSelect.addEventListener('change', () => {
+  currentPage = 1;
+  loadTasks();
+});
+
+prevPageButton.addEventListener('click', () => {
+  if (currentPage > 1) {
+    currentPage--;
+    loadTasks();
+  }
+});
+
+nextPageButton.addEventListener('click', () => {
+  if (currentPage < totalPages) {
+    currentPage++;
+    loadTasks();
+  }
+});
 
 document
   .getElementById('load-trash-button')

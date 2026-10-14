@@ -382,3 +382,27 @@ textarea {
     flex: 1;
   }
 }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.pagination button {
+  width: auto;
+  margin: 0;
+}
+
+.pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#page-info {
+  color: var(--muted);
+  font-size: 14px;
+}

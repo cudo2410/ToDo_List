@@ -85,7 +85,6 @@ const createTask = async (req, res) => {
 };
 
 // 2. Lấy danh sách công việc chưa bị xóa
-
 const getTasks = async (req, res) => {
   try {
     const { status, priority, search, due_from, due_to } = req.query;
@@ -162,6 +161,32 @@ const getTasks = async (req, res) => {
       });
     }
 
+    // Logic sắp xếp (Sort Options)
+    const sortOptions = {
+      created_desc: 'created_at DESC',
+      created_asc: 'created_at ASC',
+      due_asc: 'due_date IS NULL ASC, due_date ASC',
+      priority_desc: `
+        CASE priority
+          WHEN 'high' THEN 3
+          WHEN 'medium' THEN 2
+          WHEN 'low' THEN 1
+          ELSE 0
+        END DESC, created_at DESC
+      `,
+      title_asc: 'title ASC',
+    };
+
+    const selectedSort = sort || 'created_desc';
+
+    if (!Object.prototype.hasOwnProperty.call(sortOptions, selectedSort)) {
+      return res.status(400).json({
+        message: 'Kiểu sắp xếp không hợp lệ.',
+      });
+    }
+
+    const orderBy = sortOptions[selectedSort];
+
     // Xây dựng điều kiện SQL
     const conditions = ['user_id = ?', 'deleted_at IS NULL'];
 
@@ -212,7 +237,7 @@ const getTasks = async (req, res) => {
               due_date, completed_at, created_at, updated_at
        FROM tasks
        WHERE ${whereClause}
-       ORDER BY created_at DESC
+       ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
       [...params, limit, offset],
     );

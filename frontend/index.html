@@ -143,6 +143,38 @@
             </div>
           </div>
 
+          <div class="filter-grid">
+            <div>
+              <label for="sort-by">Sắp xếp theo</label>
+              <select id="sort-by">
+                <option value="created_desc">Mới tạo gần đây</option>
+                <option value="created_asc">Tạo từ lâu nhất</option>
+                <option value="due_asc">Hạn gần nhất</option>
+                <option value="priority_desc">Ưu tiên cao trước</option>
+                <option value="title_asc">Tên A–Z</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="page-size">Số công việc mỗi trang</label>
+              <select id="page-size">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="pagination">
+            <button id="prev-page" class="secondary-button" type="button">
+              Trang trước
+            </button>
+            <span id="page-info" aria-live="polite">Trang 1</span>
+            <button id="next-page" class="secondary-button" type="button">
+              Trang sau
+            </button>
+          </div>
+
           <p id="task-count" class="subtitle"></p>
           <div id="task-list" class="task-list"></div>
         </section>
