@@ -176,6 +176,38 @@
           <label for="task-due-date">Hạn hoàn thành</label>
           <input id="task-due-date" name="due_date" type="date" />
 
+          <div class="form-group">
+            <label for="recurrence-type">Lặp lại</label>
+            <select id="recurrence-type" name="recurrence_type">
+              <option value="none">Không lặp</option>
+              <option value="daily">Hằng ngày</option>
+              <option value="weekly">Hằng tuần</option>
+              <option value="monthly">Hằng tháng</option>
+              <option value="yearly">Hằng năm</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="recurrence-options" hidden>
+            <label for="recurrence-interval">Lặp lại mỗi</label>
+            <input
+              type="number"
+              id="recurrence-interval"
+              name="recurrence_interval"
+              min="1"
+              max="365"
+              value="1"
+            />
+
+            <label for="recurrence-end-date"
+              >Ngày kết thúc lặp (không bắt buộc)</label
+            >
+            <input
+              type="date"
+              id="recurrence-end-date"
+              name="recurrence_end_date"
+            />
+          </div>
+
           <button type="submit">Thêm công việc</button>
         </form>
 
@@ -285,6 +317,38 @@
 
             <label for="edit-task-due-date">Hạn hoàn thành</label>
             <input id="edit-task-due-date" name="due_date" type="date" />
+
+            <div class="form-group">
+              <label for="edit-recurrence-type">Lặp lại</label>
+              <select id="edit-recurrence-type" name="recurrence_type">
+                <option value="none">Không lặp</option>
+                <option value="daily">Hằng ngày</option>
+                <option value="weekly">Hằng tuần</option>
+                <option value="monthly">Hằng tháng</option>
+                <option value="yearly">Hằng năm</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="edit-recurrence-options" hidden>
+              <label for="edit-recurrence-interval">Lặp lại mỗi</label>
+              <input
+                type="number"
+                id="edit-recurrence-interval"
+                name="recurrence_interval"
+                min="1"
+                max="365"
+                value="1"
+              />
+
+              <label for="edit-recurrence-end-date"
+                >Ngày kết thúc lặp (không bắt buộc)</label
+              >
+              <input
+                type="date"
+                id="edit-recurrence-end-date"
+                name="recurrence_end_date"
+              />
+            </div>
 
             <div class="dialog-actions">
               <button

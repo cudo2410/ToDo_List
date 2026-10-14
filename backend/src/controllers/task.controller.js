@@ -30,7 +30,18 @@ const createTask = async (req, res) => {
       description = null,
       priority = 'medium',
       due_date = null,
+      recurrence_type = 'none',
+      recurrence_interval = 1,
+      recurrence_end_date = null,
     } = req.body;
+
+    const ALLOWED_RECURRENCE_TYPES = [
+      'none',
+      'daily',
+      'weekly',
+      'monthly',
+      'yearly',
+    ];
 
     if (typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({
@@ -62,16 +73,81 @@ const createTask = async (req, res) => {
       });
     }
 
+    if (!ALLOWED_RECURRENCE_TYPES.includes(recurrence_type)) {
+      return res.status(400).json({
+        message: 'Kiểu lặp lại không hợp lệ.',
+      });
+    }
+
+    if (
+      !Number.isInteger(recurrence_interval) ||
+      recurrence_interval < 1 ||
+      recurrence_interval > 365
+    ) {
+      return res.status(400).json({
+        message: 'Khoảng cách lặp phải là số nguyên từ 1 đến 365.',
+      });
+    }
+
+    if (recurrence_end_date !== null && !isValidDateOnly(recurrence_end_date)) {
+      return res.status(400).json({
+        message: 'Ngày kết thúc lặp không hợp lệ.',
+      });
+    }
+
+    if (recurrence_type !== 'none' && due_date === null) {
+      return res.status(400).json({
+        message: 'Công việc lặp lại phải có ngày hết hạn.',
+      });
+    }
+
+    if (
+      recurrence_type !== 'none' &&
+      recurrence_end_date !== null &&
+      recurrence_end_date < due_date
+    ) {
+      return res.status(400).json({
+        message: 'Ngày kết thúc lặp không được trước ngày hết hạn.',
+      });
+    }
+
+    const recurrenceInterval =
+      recurrence_type === 'none' ? 1 : recurrence_interval;
+
+    const recurrenceEndDate =
+      recurrence_type === 'none' ? null : recurrence_end_date;
+
     const [result] = await pool.execute(
       `INSERT INTO tasks
-        (user_id, title, description, status, priority, due_date)
-       VALUES (?, ?, ?, 'todo', ?, ?)`,
-      [req.user.id, title.trim(), description, priority, due_date],
+        (
+          user_id,
+          title,
+          description,
+          status,
+          priority,
+          due_date,
+          recurrence_type,
+          recurrence_interval,
+          recurrence_end_date
+        )
+       VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, ?)`,
+      [
+        req.user.id,
+        title.trim(),
+        description,
+        priority,
+        due_date,
+        recurrence_type,
+        recurrenceInterval,
+        recurrenceEndDate,
+      ],
     );
 
     const [rows] = await pool.execute(
-      `SELECT id, title, description, status, priority,
-              due_date, created_at, updated_at
+      `SELECT
+          id, title, description, status, priority, due_date,
+          recurrence_type, recurrence_interval, recurrence_end_date,
+          created_at, updated_at
        FROM tasks
        WHERE id = ? AND user_id = ?`,
       [result.insertId, req.user.id],
@@ -276,9 +352,63 @@ const getTaskById = async (req, res) => {
 };
 
 // 4. Cập nhật công việc
+
 const updateTask = async (req, res) => {
   try {
-    const { title, description, status, priority, due_date } = req.body;
+    const {
+      title,
+      description,
+      status,
+      priority,
+      due_date,
+      recurrence_type,
+      recurrence_interval,
+      recurrence_end_date,
+    } = req.body;
+
+    const ALLOWED_RECURRENCE_TYPES = [
+      'none',
+      'daily',
+      'weekly',
+      'monthly',
+      'yearly',
+    ];
+
+    // Lấy dữ liệu hiện tại của công việc thuộc người dùng.
+    const [existingTasks] = await pool.execute(
+      `SELECT
+          id, due_date, recurrence_type,
+          recurrence_interval, recurrence_end_date
+       FROM tasks
+       WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
+      [req.params.id, req.user.id],
+    );
+
+    if (existingTasks.length === 0) {
+      return res.status(404).json({
+        message: 'Không tìm thấy công việc.',
+      });
+    }
+
+    const existing = existingTasks[0];
+
+    const effectiveDueDate =
+      due_date !== undefined ? due_date : existing.due_date;
+
+    const effectiveRecurrenceType =
+      recurrence_type !== undefined
+        ? recurrence_type
+        : existing.recurrence_type || 'none';
+
+    const effectiveRecurrenceInterval =
+      recurrence_interval !== undefined
+        ? recurrence_interval
+        : Number(existing.recurrence_interval || 1);
+
+    const effectiveRecurrenceEndDate =
+      recurrence_end_date !== undefined
+        ? recurrence_end_date
+        : existing.recurrence_end_date;
 
     const fields = [];
     const values = [];
@@ -345,6 +475,78 @@ const updateTask = async (req, res) => {
       values.push(due_date);
     }
 
+    if (recurrence_type !== undefined) {
+      if (!ALLOWED_RECURRENCE_TYPES.includes(recurrence_type)) {
+        return res.status(400).json({
+          message: 'Kiểu lặp lại không hợp lệ.',
+        });
+      }
+
+      fields.push('recurrence_type = ?');
+      values.push(recurrence_type);
+    }
+
+    if (recurrence_interval !== undefined) {
+      if (
+        !Number.isInteger(recurrence_interval) ||
+        recurrence_interval < 1 ||
+        recurrence_interval > 365
+      ) {
+        return res.status(400).json({
+          message: 'Khoảng cách lặp phải là số nguyên từ 1 đến 365.',
+        });
+      }
+
+      fields.push('recurrence_interval = ?');
+      values.push(recurrence_interval);
+    }
+
+    if (recurrence_end_date !== undefined) {
+      if (
+        recurrence_end_date !== null &&
+        !isValidDateOnly(recurrence_end_date)
+      ) {
+        return res.status(400).json({
+          message: 'Ngày kết thúc lặp không hợp lệ.',
+        });
+      }
+
+      fields.push('recurrence_end_date = ?');
+      values.push(recurrence_end_date);
+    }
+
+    // Kiểm tra tính hợp lệ của quy tắc lặp sau khi cập nhật.
+    if (effectiveRecurrenceType !== 'none' && effectiveDueDate === null) {
+      return res.status(400).json({
+        message: 'Công việc lặp lại phải có ngày hết hạn.',
+      });
+    }
+
+    if (
+      effectiveRecurrenceType !== 'none' &&
+      effectiveRecurrenceEndDate !== null &&
+      effectiveRecurrenceEndDate !== undefined &&
+      effectiveRecurrenceEndDate < String(effectiveDueDate).slice(0, 10)
+    ) {
+      return res.status(400).json({
+        message: 'Ngày kết thúc lặp không được trước ngày hết hạn.',
+      });
+    }
+
+    // Khi tắt lặp, đưa khoảng cách về 1 và xóa ngày kết thúc.
+    if (
+      effectiveRecurrenceType === 'none' &&
+      (recurrence_type !== undefined ||
+        recurrence_interval !== undefined ||
+        recurrence_end_date !== undefined)
+    ) {
+      fields.push('recurrence_interval = ?');
+      values.push(1);
+
+      fields.push('recurrence_end_date = ?');
+      values.push(null);
+    }
+
     if (fields.length === 0) {
       return res.status(400).json({
         message: 'Không có thông tin cần cập nhật.',
@@ -353,26 +555,12 @@ const updateTask = async (req, res) => {
 
     values.push(req.params.id, req.user.id);
 
-    const [result] = await pool.execute(
+    await pool.execute(
       `UPDATE tasks
        SET ${fields.join(', ')}
        WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
       values,
     );
-
-    if (result.affectedRows === 0) {
-      const [tasks] = await pool.execute(
-        `SELECT id FROM tasks
-         WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
-        [req.params.id, req.user.id],
-      );
-
-      if (tasks.length === 0) {
-        return res.status(404).json({
-          message: 'Không tìm thấy công việc.',
-        });
-      }
-    }
 
     return res.status(200).json({
       message: 'Cập nhật công việc thành công.',

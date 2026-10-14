@@ -30,6 +30,18 @@ const calendarState = {
   month: new Date().getMonth(),
 };
 
+const recurrenceTypeInput = document.getElementById('recurrence-type');
+const recurrenceOptions = document.getElementById('recurrence-options');
+
+const editRecurrenceTypeInput = document.getElementById('edit-recurrence-type');
+const editRecurrenceOptions = document.getElementById(
+  'edit-recurrence-options',
+);
+
+const recurrenceType = taskForm.elements.recurrence_type.value;
+const recurrenceInterval = Number(taskForm.elements.recurrence_interval.value);
+const recurrenceEndDate = taskForm.elements.recurrence_end_date.value;
+
 let currentPage = 1;
 let totalPages = 1;
 let searchTimer = null;
@@ -110,6 +122,7 @@ document.getElementById('logout-button').addEventListener('click', () => {
   taskList.replaceChildren();
   trashList.replaceChildren();
   taskForm.reset();
+  recurrenceOptions.hidden = true;
 
   showAuth();
   showMessage('Bạn đã đăng xuất.', 'success');
@@ -178,6 +191,17 @@ function openEditDialog(task) {
   editTaskForm.elements.due_date.value = task.due_date
     ? String(task.due_date).slice(0, 10)
     : '';
+
+  editRecurrenceTypeInput.value = task.recurrence_type || 'none';
+
+  editTaskForm.elements.recurrence_interval.value =
+    task.recurrence_interval || 1;
+
+  editTaskForm.elements.recurrence_end_date.value = task.recurrence_end_date
+    ? String(task.recurrence_end_date).slice(0, 10)
+    : '';
+
+  editRecurrenceOptions.hidden = editRecurrenceTypeInput.value === 'none';
 
   editDialog.showModal();
 }
@@ -330,12 +354,17 @@ taskForm.addEventListener('submit', async (event) => {
     description: description || null,
     priority,
     due_date: dueDate || null,
+    recurrence_type: recurrenceType,
+    recurrence_interval: recurrenceInterval,
+    recurrence_end_date:
+      recurrenceType !== 'none' && recurrenceEndDate ? recurrenceEndDate : null,
   };
 
   try {
     await createTask(task);
 
     taskForm.reset();
+    recurrenceOptions.hidden = true;
     await loadTasks();
     await loadCalendar();
 
@@ -479,6 +508,10 @@ editTaskForm.addEventListener('submit', async (event) => {
     description: description || null,
     priority,
     due_date: dueDate || null,
+    recurrence_type: recurrenceType,
+    recurrence_interval: recurrenceInterval,
+    recurrence_end_date:
+      recurrenceType !== 'none' && recurrenceEndDate ? recurrenceEndDate : null,
   };
 
   // Lấy ID từ thẻ công việc đang được chỉnh sửa.
@@ -640,6 +673,14 @@ nextMonthButton.addEventListener('click', () => {
   }
 
   loadCalendar();
+});
+
+recurrenceTypeInput.addEventListener('change', () => {
+  recurrenceOptions.hidden = recurrenceTypeInput.value === 'none';
+});
+
+editRecurrenceTypeInput.addEventListener('change', () => {
+  editRecurrenceOptions.hidden = editRecurrenceTypeInput.value === 'none';
 });
 
 async function initializeApp() {
