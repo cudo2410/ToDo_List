@@ -155,6 +155,49 @@
           </button>
           <div id="trash-list" class="task-list"></div>
         </section>
+
+        <dialog id="edit-task-dialog" class="edit-dialog">
+          <form id="edit-task-form">
+            <h2>Chỉnh sửa công việc</h2>
+
+            <label for="edit-task-title">Tên công việc *</label>
+            <input
+              id="edit-task-title"
+              name="title"
+              type="text"
+              maxlength="255"
+              required
+            />
+
+            <label for="edit-task-description">Mô tả</label>
+            <textarea
+              id="edit-task-description"
+              name="description"
+              rows="4"
+            ></textarea>
+
+            <label for="edit-task-priority">Mức độ ưu tiên</label>
+            <select id="edit-task-priority" name="priority">
+              <option value="low">Thấp</option>
+              <option value="medium">Trung bình</option>
+              <option value="high">Cao</option>
+            </select>
+
+            <label for="edit-task-due-date">Hạn hoàn thành</label>
+            <input id="edit-task-due-date" name="due_date" type="date" />
+
+            <div class="dialog-actions">
+              <button
+                id="cancel-edit-button"
+                class="secondary-button"
+                type="button"
+              >
+                Hủy
+              </button>
+              <button type="submit">Lưu thay đổi</button>
+            </div>
+          </form>
+        </dialog>
       </section>
     </main>
   </body>

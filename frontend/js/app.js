@@ -7,6 +7,8 @@ const messageElement = document.getElementById('message');
 const taskForm = document.getElementById('task-form');
 const taskList = document.getElementById('task-list');
 const trashList = document.getElementById('trash-list');
+const editDialog = document.getElementById('edit-task-dialog');
+const editTaskForm = document.getElementById('edit-task-form');
 
 const searchInput = document.getElementById('task-search');
 const statusFilter = document.getElementById('filter-status');
@@ -145,6 +147,19 @@ function createActionButton(label, className, handler) {
   return button;
 }
 
+function openEditDialog(task) {
+  editTaskForm.dataset.taskId = task.id;
+
+  editTaskForm.elements.title.value = task.title || '';
+  editTaskForm.elements.description.value = task.description || '';
+  editTaskForm.elements.priority.value = task.priority || 'medium';
+  editTaskForm.elements.due_date.value = task.due_date
+    ? String(task.due_date).slice(0, 10)
+    : '';
+
+  editDialog.showModal();
+}
+
 function renderTask(task) {
   const card = document.createElement('article');
   card.className = 'task-card';
@@ -179,6 +194,10 @@ function renderTask(task) {
     }[task.status] || 'Cập nhật';
 
   actions.append(
+    createActionButton('Chỉnh sửa', 'secondary-button', () => {
+      openEditDialog(task);
+    }),
+
     createActionButton(nextLabel, '', async () => {
       try {
         await updateTask(task.id, { status: nextStatus });
@@ -351,6 +370,51 @@ async function loadTrash() {
     trashList.append(card);
   });
 }
+
+document.getElementById('cancel-edit-button').addEventListener('click', () => {
+  editDialog.close();
+});
+
+editTaskForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  const title = editTaskForm.elements.title.value.trim();
+  const description = editTaskForm.elements.description.value.trim();
+  const priority = editTaskForm.elements.priority.value;
+  const dueDate = editTaskForm.elements.due_date.value;
+
+  if (!title) {
+    showMessage('Tên công việc không được để trống.', 'error');
+    return;
+  }
+
+  const changes = {
+    title,
+    description: description || null,
+    priority,
+    due_date: dueDate || null,
+  };
+
+  // Lấy ID từ thẻ công việc đang được chỉnh sửa.
+  // Gắn ID vào biểu mẫu khi mở hộp thoại ở bước dưới.
+  const taskId = editTaskForm.dataset.taskId;
+
+  if (!taskId) {
+    showMessage('Không xác định được công việc cần sửa.', 'error');
+    return;
+  }
+
+  try {
+    await updateTask(taskId, changes);
+
+    editDialog.close();
+    await loadTasks();
+
+    showMessage('Đã lưu thay đổi công việc.', 'success');
+  } catch (error) {
+    showMessage(getErrorMessage(error), 'error');
+  }
+});
 
 async function initializeApp() {
   if (!sessionStorage.getItem('token')) {
