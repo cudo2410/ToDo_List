@@ -77,6 +77,43 @@
           </button>
         </header>
 
+        <section class="calendar-panel">
+          <div class="calendar-header">
+            <h2>Lịch công việc</h2>
+
+            <div class="calendar-navigation">
+              <button
+                type="button"
+                id="prev-month-button"
+                aria-label="Tháng trước"
+              >
+                ←
+              </button>
+              <h3 id="calendar-month-label">Tháng ...</h3>
+              <button
+                type="button"
+                id="next-month-button"
+                aria-label="Tháng sau"
+              >
+                →
+              </button>
+            </div>
+          </div>
+
+          <div class="calendar-weekdays">
+            <div>Thứ 2</div>
+            <div>Thứ 3</div>
+            <div>Thứ 4</div>
+            <div>Thứ 5</div>
+            <div>Thứ 6</div>
+            <div>Thứ 7</div>
+            <div>CN</div>
+          </div>
+
+          <div id="calendar-grid" class="calendar-grid"></div>
+          <p id="calendar-message" class="calendar-message"></p>
+        </section>
+
         <form id="task-form" class="panel">
           <h3>Thêm công việc</h3>
 

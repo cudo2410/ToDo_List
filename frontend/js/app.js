@@ -19,6 +19,17 @@ const prevPageButton = document.getElementById('prev-page');
 const nextPageButton = document.getElementById('next-page');
 const pageInfo = document.getElementById('page-info');
 
+const calendarGrid = document.getElementById('calendar-grid');
+const calendarMonthLabel = document.getElementById('calendar-month-label');
+const calendarMessage = document.getElementById('calendar-message');
+const prevMonthButton = document.getElementById('prev-month-button');
+const nextMonthButton = document.getElementById('next-month-button');
+
+const calendarState = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(),
+};
+
 let currentPage = 1;
 let totalPages = 1;
 let searchTimer = null;
@@ -65,6 +76,7 @@ loginForm.addEventListener('submit', async (event) => {
 
     loginForm.reset();
     await loadTasks();
+    await loadCalendar();
 
     showMessage('Đăng nhập thành công!', 'success');
   } catch (error) {
@@ -211,6 +223,8 @@ function renderTask(task) {
       try {
         await updateTask(task.id, { status: nextStatus });
         await loadTasks();
+        await loadCalendar();
+
         showMessage('Đã cập nhật trạng thái.', 'success');
       } catch (error) {
         showMessage(getErrorMessage(error), 'error');
@@ -226,6 +240,8 @@ function renderTask(task) {
       try {
         await deleteTask(task.id);
         await loadTasks();
+        await loadCalendar();
+
         showMessage('Đã chuyển công việc vào thùng rác.', 'success');
       } catch (error) {
         showMessage(getErrorMessage(error), 'error');
@@ -304,6 +320,7 @@ taskForm.addEventListener('submit', async (event) => {
 
     taskForm.reset();
     await loadTasks();
+    await loadCalendar();
 
     showMessage('Đã thêm công việc.', 'success');
   } catch (error) {
@@ -410,6 +427,7 @@ async function loadTrash() {
           await restoreTask(task.id);
           await loadTrash();
           await loadTasks();
+          await loadCalendar();
 
           showMessage('Đã khôi phục công việc.', 'success');
         } catch (error) {
@@ -460,11 +478,151 @@ editTaskForm.addEventListener('submit', async (event) => {
 
     editDialog.close();
     await loadTasks();
+    await loadCalendar();
 
     showMessage('Đã lưu thay đổi công việc.', 'success');
   } catch (error) {
     showMessage(getErrorMessage(error), 'error');
   }
+});
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarDate(year, month, day) {
+  return new Date(year, month, day);
+}
+
+async function loadCalendar() {
+  const { year, month } = calendarState;
+
+  const firstDay = getCalendarDate(year, month, 1);
+  const lastDay = getCalendarDate(year, month + 1, 0);
+
+  const from = formatLocalDate(firstDay);
+  const to = formatLocalDate(lastDay);
+
+  calendarMonthLabel.textContent = firstDay.toLocaleDateString('vi-VN', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  calendarGrid.replaceChildren();
+  calendarMessage.textContent = 'Đang tải lịch...';
+
+  try {
+    // Tải các công việc có ngày đến hạn trong tháng đang xem.
+    const result = await getTasks({
+      due_from: from,
+      due_to: to,
+      page: '1',
+      limit: '100',
+      sort: 'due_asc',
+    });
+
+    const tasks = result.tasks || [];
+    const tasksByDate = new Map();
+
+    for (const task of tasks) {
+      if (!task.due_date) continue;
+
+      const dateKey = String(task.due_date).slice(0, 10);
+
+      if (!tasksByDate.has(dateKey)) {
+        tasksByDate.set(dateKey, []);
+      }
+
+      tasksByDate.get(dateKey).push(task);
+    }
+
+    // Lịch bắt đầu từ thứ Hai.
+    const startOffset = (firstDay.getDay() + 6) % 7;
+    const daysInMonth = lastDay.getDate();
+    const cellCount = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    const today = formatLocalDate(new Date());
+
+    for (let i = 0; i < cellCount; i++) {
+      const dayNumber = i - startOffset + 1;
+      const date = getCalendarDate(year, month, dayNumber);
+      const dateKey = formatLocalDate(date);
+      const isOutsideMonth = date.getMonth() !== month;
+
+      const dayCell = document.createElement('div');
+      dayCell.className = 'calendar-day';
+
+      if (isOutsideMonth) {
+        dayCell.classList.add('is-outside-month');
+      }
+
+      if (dateKey === today) {
+        dayCell.classList.add('is-today');
+      }
+
+      const number = document.createElement('div');
+      number.className = 'calendar-day-number';
+      number.textContent = date.getDate();
+      dayCell.appendChild(number);
+
+      if (!isOutsideMonth) {
+        const dayTasks = tasksByDate.get(dateKey) || [];
+
+        for (const task of dayTasks) {
+          const taskButton = document.createElement('button');
+          taskButton.type = 'button';
+          taskButton.className = 'calendar-task';
+
+          if (task.status === 'completed') {
+            taskButton.classList.add('is-completed');
+          }
+
+          taskButton.textContent = task.title;
+          taskButton.title = `${task.title} — Bấm để chỉnh sửa`;
+
+          taskButton.addEventListener('click', () => {
+            openEditDialog(task);
+          });
+
+          dayCell.appendChild(taskButton);
+        }
+      }
+
+      calendarGrid.appendChild(dayCell);
+    }
+
+    calendarMessage.textContent = tasks.length
+      ? `${tasks.length} công việc có ngày đến hạn trong tháng này.`
+      : 'Chưa có công việc nào có ngày đến hạn trong tháng này.';
+  } catch (error) {
+    console.error('Không thể tải lịch:', error);
+    calendarMessage.textContent = 'Không thể tải lịch. Hãy thử tải lại.';
+  }
+}
+
+prevMonthButton.addEventListener('click', () => {
+  calendarState.month--;
+
+  if (calendarState.month < 0) {
+    calendarState.month = 11;
+    calendarState.year--;
+  }
+
+  loadCalendar();
+});
+
+nextMonthButton.addEventListener('click', () => {
+  calendarState.month++;
+
+  if (calendarState.month > 11) {
+    calendarState.month = 0;
+    calendarState.year++;
+  }
+
+  loadCalendar();
 });
 
 async function initializeApp() {
@@ -477,6 +635,7 @@ async function initializeApp() {
     const result = await getCurrentUser();
     showUser(result.user);
     await loadTasks();
+    await loadCalendar();
   } catch {
     sessionStorage.removeItem('token');
     showAuth();

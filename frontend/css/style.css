@@ -406,3 +406,130 @@ textarea {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* Calendar */
+.calendar-panel {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 14px;
+}
+
+.calendar-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.calendar-header h2,
+.calendar-header h3 {
+  margin: 0;
+}
+
+.calendar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.calendar-navigation button {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-text, #6b7280);
+}
+
+.calendar-day {
+  min-width: 0;
+  min-height: 100px;
+  padding: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.calendar-day.is-outside-month {
+  opacity: 0.4;
+}
+
+.calendar-day.is-today {
+  border: 2px solid #6366f1;
+}
+
+.calendar-day-number {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calendar-task {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 5px;
+  border: 0;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #3730a3;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.calendar-task.is-completed {
+  background: #dcfce7;
+  color: #166534;
+  text-decoration: line-through;
+}
+
+.calendar-message {
+  margin-top: 12px;
+  color: var(--muted-text, #6b7280);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .calendar-panel {
+    padding: 10px;
+  }
+
+  .calendar-weekdays,
+  .calendar-grid {
+    gap: 3px;
+  }
+
+  .calendar-day {
+    min-height: 75px;
+    padding: 4px;
+  }
+
+  .calendar-task {
+    padding: 3px;
+    font-size: 10px;
+  }
+
+  .calendar-weekdays {
+    font-size: 10px;
+  }
+}
