@@ -86,3 +86,7 @@ function restoreTask(id) {
     method: 'POST',
   });
 }
+
+async function getTaskStats() {
+  return apiRequest('/tasks/stats');
+}

@@ -9,6 +9,7 @@ const {
   deleteTask,
   getTrash,
   restoreTask,
+  getTaskStats,
 } = require('../controllers/task.controller');
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.use(authenticateToken);
 router.get('/trash', getTrash);
 router.post('/', createTask);
 router.get('/', getTasks);
+router.get('/stats', getTaskStats);
 router.get('/:id', getTaskById);
 router.patch('/:id', updateTask);
 router.delete('/:id', deleteTask);

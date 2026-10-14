@@ -533,3 +533,35 @@ textarea {
     font-size: 10px;
   }
 }
+
+/* Task statistics */
+.stats-panel {
+  margin: 24px 0;
+}
+
+.stats-panel h2 {
+  margin-bottom: 14px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  padding: 18px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+}
+
+.stat-card p {
+  margin: 0 0 10px;
+  color: var(--muted-text, #6b7280);
+  font-size: 13px;
+}
+
+.stat-card strong {
+  font-size: 28px;
+}

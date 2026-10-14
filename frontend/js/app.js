@@ -77,6 +77,7 @@ loginForm.addEventListener('submit', async (event) => {
     loginForm.reset();
     await loadTasks();
     await loadCalendar();
+    await loadTaskStats();
 
     showMessage('Đăng nhập thành công!', 'success');
   } catch (error) {
@@ -291,6 +292,22 @@ async function loadTasks() {
     prevPageButton.disabled = currentPage <= 1;
     nextPageButton.disabled = currentPage >= totalPages;
   } catch (error) {
+    showMessage(getErrorMessage(error), 'error');
+  }
+}
+
+async function loadTaskStats() {
+  try {
+    const result = await getTaskStats();
+    const stats = result.stats;
+
+    document.getElementById('stat-total').textContent = stats.total;
+    document.getElementById('stat-todo').textContent = stats.todo;
+    document.getElementById('stat-in-progress').textContent = stats.in_progress;
+    document.getElementById('stat-completed').textContent = stats.completed;
+    document.getElementById('stat-overdue').textContent = stats.overdue;
+  } catch (error) {
+    console.error('Không thể tải thống kê:', error);
     showMessage(getErrorMessage(error), 'error');
   }
 }
@@ -636,6 +653,7 @@ async function initializeApp() {
     showUser(result.user);
     await loadTasks();
     await loadCalendar();
+    await loadTaskStats();
   } catch {
     sessionStorage.removeItem('token');
     showAuth();

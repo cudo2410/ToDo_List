@@ -56,6 +56,12 @@ const createTask = async (req, res) => {
       });
     }
 
+    if (due_date !== null && !isValidDateOnly(due_date)) {
+      return res.status(400).json({
+        message: 'Ngày hết hạn phải có định dạng YYYY-MM-DD hợp lệ.',
+      });
+    }
+
     const [result] = await pool.execute(
       `INSERT INTO tasks
         (user_id, title, description, status, priority, due_date)
@@ -87,7 +93,8 @@ const createTask = async (req, res) => {
 // 2. Lấy danh sách công việc chưa bị xóa
 const getTasks = async (req, res) => {
   try {
-    const { status, priority, search, due_from, due_to } = req.query;
+    // FIX 1: Bổ sung 'sort' vào destructuring req.query
+    const { status, priority, search, due_from, due_to, sort } = req.query;
 
     // Phân trang
     const page = Number(req.query.page || 1);
@@ -106,40 +113,21 @@ const getTasks = async (req, res) => {
     }
 
     // Kiểm tra bộ lọc
-    if (
-      status !== undefined &&
-      !['todo', 'in_progress', 'completed'].includes(status)
-    ) {
+    if (status !== undefined && !ALLOWED_STATUS.includes(status)) {
       return res.status(400).json({
         message: 'Trạng thái không hợp lệ.',
       });
     }
 
-    if (
-      priority !== undefined &&
-      !['low', 'medium', 'high'].includes(priority)
-    ) {
+    if (priority !== undefined && !ALLOWED_PRIORITY.includes(priority)) {
       return res.status(400).json({
         message: 'Mức độ ưu tiên không hợp lệ.',
       });
     }
 
-    const isValidDate = (value) => {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-        return false;
-      }
-
-      const date = new Date(`${value}T00:00:00Z`);
-
-      return (
-        !Number.isNaN(date.getTime()) &&
-        date.toISOString().slice(0, 10) === value
-      );
-    };
-
     if (
-      (due_from !== undefined && !isValidDate(due_from)) ||
-      (due_to !== undefined && !isValidDate(due_to))
+      (due_from !== undefined && !isValidDateOnly(due_from)) ||
+      (due_to !== undefined && !isValidDateOnly(due_to))
     ) {
       return res.status(400).json({
         message: 'Ngày lọc phải có định dạng YYYY-MM-DD.',
@@ -231,8 +219,8 @@ const getTasks = async (req, res) => {
     const total = Number(countRows[0].total);
     const offset = (page - 1) * limit;
 
-    // Lấy dữ liệu của trang hiện tại
-    const [tasks] = await pool.execute(
+    // Lấy dữ liệu của trang hiện tại (chuyển sang dạng string cho limit/offset để tránh lỗi mysql2 prepared statement)
+    const [tasks] = await pool.query(
       `SELECT id, title, description, status, priority,
               due_date, completed_at, created_at, updated_at
        FROM tasks
@@ -347,6 +335,12 @@ const updateTask = async (req, res) => {
     }
 
     if (due_date !== undefined) {
+      if (due_date !== null && !isValidDateOnly(due_date)) {
+        return res.status(400).json({
+          message: 'Ngày hết hạn phải có định dạng YYYY-MM-DD hợp lệ.',
+        });
+      }
+
       fields.push('due_date = ?');
       values.push(due_date);
     }
@@ -470,6 +464,54 @@ const restoreTask = async (req, res) => {
   }
 };
 
+// 8. Thống kê công việc
+async function getTaskStats(req, res) {
+  try {
+    const userId = req.user.id;
+
+    // FIX 2: Sửa db.query -> pool.query
+    const [rows] = await pool.query(
+      `
+      SELECT
+        COUNT(*) AS total,
+        IFNULL(SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END), 0) AS todo,
+        IFNULL(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) AS in_progress,
+        IFNULL(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) AS completed,
+        IFNULL(SUM(
+          CASE
+            WHEN status != 'completed'
+              AND due_date IS NOT NULL
+              AND due_date < CURDATE()
+            THEN 1
+            ELSE 0
+          END
+        ), 0) AS overdue
+      FROM tasks
+      WHERE user_id = ?
+        AND deleted_at IS NULL
+      `,
+      [userId],
+    );
+
+    const stats = rows[0];
+
+    return res.json({
+      stats: {
+        total: Number(stats.total),
+        todo: Number(stats.todo),
+        in_progress: Number(stats.in_progress),
+        completed: Number(stats.completed),
+        overdue: Number(stats.overdue),
+      },
+    });
+  } catch (error) {
+    console.error('Lỗi thống kê công việc:', error.message);
+    return res
+      .status(500)
+      .json({ message: 'Không thể tải thống kê công việc.' });
+  }
+}
+
 module.exports = {
   createTask,
   getTasks,
@@ -478,4 +520,5 @@ module.exports = {
   deleteTask,
   getTrash,
   restoreTask,
+  getTaskStats,
 };
