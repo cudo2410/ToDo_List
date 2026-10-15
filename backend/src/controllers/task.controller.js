@@ -22,6 +22,56 @@ function isValidDateOnly(value) {
   );
 }
 
+function addDaysToDate(dateString, days) {
+  const [year, month, day] = String(dateString)
+    .slice(0, 10)
+    .split('-')
+    .map(Number);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getNextDueDate(dueDate, recurrenceType, interval) {
+  const dateString = String(dueDate).slice(0, 10);
+  const [year, month, day] = dateString.split('-').map(Number);
+
+  switch (recurrenceType) {
+    case 'daily':
+      return addDaysToDate(dateString, interval);
+
+    case 'weekly':
+      return addDaysToDate(dateString, interval * 7);
+
+    case 'monthly':
+    case 'yearly': {
+      const monthsToAdd =
+        recurrenceType === 'monthly' ? interval : interval * 12;
+
+      const targetMonthIndex = month - 1 + monthsToAdd;
+      const targetYear = year + Math.floor(targetMonthIndex / 12);
+      const targetMonth = targetMonthIndex % 12;
+
+      const lastDay = new Date(
+        Date.UTC(targetYear, targetMonth + 1, 0),
+      ).getUTCDate();
+
+      const nextDay = Math.min(day, lastDay);
+
+      return [
+        targetYear,
+        String(targetMonth + 1).padStart(2, '0'),
+        String(nextDay).padStart(2, '0'),
+      ].join('-');
+    }
+
+    default:
+      return null;
+  }
+}
+
 // 1. Tạo công việc
 const createTask = async (req, res) => {
   try {
@@ -352,8 +402,9 @@ const getTaskById = async (req, res) => {
 };
 
 // 4. Cập nhật công việc
-
 const updateTask = async (req, res) => {
+  let connection;
+
   try {
     const {
       title,
@@ -374,11 +425,15 @@ const updateTask = async (req, res) => {
       'yearly',
     ];
 
-    // Lấy dữ liệu hiện tại của công việc thuộc người dùng.
+    // Lấy công việc hiện tại, chuẩn hóa các trường ngày thành YYYY-MM-DD.
     const [existingTasks] = await pool.execute(
       `SELECT
-          id, due_date, recurrence_type,
-          recurrence_interval, recurrence_end_date
+          id, user_id, title, description, status, priority,
+          DATE_FORMAT(due_date, '%Y-%m-%d') AS due_date,
+          recurrence_type, recurrence_interval,
+          DATE_FORMAT(recurrence_end_date, '%Y-%m-%d')
+            AS recurrence_end_date,
+          recurrence_series_id
        FROM tasks
        WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
       [req.params.id, req.user.id],
@@ -487,23 +542,23 @@ const updateTask = async (req, res) => {
     }
 
     if (recurrence_interval !== undefined) {
-      if (
-        !Number.isInteger(recurrence_interval) ||
-        recurrence_interval < 1 ||
-        recurrence_interval > 365
-      ) {
+      // Chấp nhận số nguyên hoặc chuỗi số từ biểu mẫu HTML.
+      const interval = Number(recurrence_interval);
+
+      if (!Number.isInteger(interval) || interval < 1 || interval > 365) {
         return res.status(400).json({
           message: 'Khoảng cách lặp phải là số nguyên từ 1 đến 365.',
         });
       }
 
       fields.push('recurrence_interval = ?');
-      values.push(recurrence_interval);
+      values.push(interval);
     }
 
     if (recurrence_end_date !== undefined) {
       if (
         recurrence_end_date !== null &&
+        recurrence_end_date !== '' &&
         !isValidDateOnly(recurrence_end_date)
       ) {
         return res.status(400).json({
@@ -512,11 +567,10 @@ const updateTask = async (req, res) => {
       }
 
       fields.push('recurrence_end_date = ?');
-      values.push(recurrence_end_date);
+      values.push(recurrence_end_date || null);
     }
 
-    // Kiểm tra tính hợp lệ của quy tắc lặp sau khi cập nhật.
-    if (effectiveRecurrenceType !== 'none' && effectiveDueDate === null) {
+    if (effectiveRecurrenceType !== 'none' && !effectiveDueDate) {
       return res.status(400).json({
         message: 'Công việc lặp lại phải có ngày hết hạn.',
       });
@@ -524,8 +578,7 @@ const updateTask = async (req, res) => {
 
     if (
       effectiveRecurrenceType !== 'none' &&
-      effectiveRecurrenceEndDate !== null &&
-      effectiveRecurrenceEndDate !== undefined &&
+      effectiveRecurrenceEndDate &&
       effectiveRecurrenceEndDate < String(effectiveDueDate).slice(0, 10)
     ) {
       return res.status(400).json({
@@ -533,7 +586,6 @@ const updateTask = async (req, res) => {
       });
     }
 
-    // Khi tắt lặp, đưa khoảng cách về 1 và xóa ngày kết thúc.
     if (
       effectiveRecurrenceType === 'none' &&
       (recurrence_type !== undefined ||
@@ -553,24 +605,99 @@ const updateTask = async (req, res) => {
       });
     }
 
+    // Bắt đầu giao dịch: cập nhật và tạo lần lặp tiếp theo cùng nhau.
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
     values.push(req.params.id, req.user.id);
 
-    await pool.execute(
+    await connection.execute(
       `UPDATE tasks
        SET ${fields.join(', ')}
        WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
       values,
     );
 
+    const isNewlyCompleted =
+      status === 'completed' && existing.status !== 'completed';
+
+    if (
+      isNewlyCompleted &&
+      effectiveRecurrenceType !== 'none' &&
+      effectiveDueDate
+    ) {
+      const nextDueDate = getNextDueDate(
+        effectiveDueDate,
+        effectiveRecurrenceType,
+        Number(effectiveRecurrenceInterval),
+      );
+
+      const isWithinEndDate =
+        !effectiveRecurrenceEndDate ||
+        nextDueDate <= String(effectiveRecurrenceEndDate).slice(0, 10);
+
+      if (nextDueDate && isWithinEndDate) {
+        // Mọi lần thực hiện trong chuỗi đều dùng chung một mã.
+        const seriesId = existing.recurrence_series_id || existing.id;
+
+        if (!existing.recurrence_series_id) {
+          await connection.execute(
+            `UPDATE tasks
+             SET recurrence_series_id = ?
+             WHERE id = ? AND user_id = ?`,
+            [seriesId, existing.id, req.user.id],
+          );
+        }
+
+        // INSERT IGNORE kết hợp UNIQUE INDEX giúp tránh tạo trùng.
+        await connection.execute(
+          `INSERT IGNORE INTO tasks (
+             user_id,
+             title,
+             description,
+             status,
+             priority,
+             due_date,
+             recurrence_type,
+             recurrence_interval,
+             recurrence_end_date,
+             recurrence_series_id
+           )
+           VALUES (?, ?, ?, 'todo', ?, ?, ?, ?, ?, ?)`,
+          [
+            req.user.id,
+            title !== undefined ? title.trim() : existing.title,
+            description !== undefined ? description : existing.description,
+            priority !== undefined ? priority : existing.priority,
+            nextDueDate,
+            effectiveRecurrenceType,
+            Number(effectiveRecurrenceInterval),
+            effectiveRecurrenceEndDate || null,
+            seriesId,
+          ],
+        );
+      }
+    }
+
+    await connection.commit();
+
     return res.status(200).json({
       message: 'Cập nhật công việc thành công.',
     });
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+    }
+
     console.error('Update task error:', error.message);
 
     return res.status(500).json({
       message: 'Không thể cập nhật công việc.',
     });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
   }
 };
 
